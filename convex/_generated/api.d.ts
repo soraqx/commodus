@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as dashboard from "../dashboard.js";
 import type * as facilities from "../facilities.js";
 import type * as seed from "../seed.js";
 
@@ -20,6 +21,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  dashboard: typeof dashboard;
   facilities: typeof facilities;
   seed: typeof seed;
 }>;
