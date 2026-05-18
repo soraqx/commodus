@@ -148,7 +148,7 @@ function DashboardSkeleton() {
   )
 }
 
-export default function DashboardPage() {
+export function DashboardPage() {
   return (
     <section className="space-y-8">
       <PageHeader
