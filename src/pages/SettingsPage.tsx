@@ -1,11 +1,11 @@
 import { PageHeader } from '@/components/layout/PageHeader'
 
-export function FacilitiesPage() {
+export function SettingsPage() {
   return (
     <section className="space-y-8">
       <PageHeader
-        title="Facilities"
-        description="Manage labs, gym, library, and live availability."
+        title="Settings"
+        description="Account preferences and application configuration."
       />
     </section>
   )

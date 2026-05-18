@@ -1,10 +1,12 @@
+import { PageHeader } from '@/components/layout/PageHeader'
+
 export function UsersPage() {
   return (
-    <section className="space-y-2">
-      <h2 className="text-2xl font-semibold tracking-tight">User Management</h2>
-      <p className="text-muted-foreground">
-        Superadmin role updates and user directory (RBAC).
-      </p>
+    <section className="space-y-8">
+      <PageHeader
+        title="User management"
+        description="View users and update roles (superadmin)."
+      />
     </section>
   )
 }

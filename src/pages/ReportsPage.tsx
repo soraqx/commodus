@@ -1,10 +1,12 @@
+import { PageHeader } from '@/components/layout/PageHeader'
+
 export function ReportsPage() {
   return (
-    <section className="space-y-2">
-      <h2 className="text-2xl font-semibold tracking-tight">Reports</h2>
-      <p className="text-muted-foreground">
-        Past 7 days, past week, and past month reservation summaries.
-      </p>
+    <section className="space-y-8">
+      <PageHeader
+        title="Reports"
+        description="Reservation summaries for the past 7 days, week, and month."
+      />
     </section>
   )
 }
