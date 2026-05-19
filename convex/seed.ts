@@ -85,3 +85,17 @@ export const seedUsers = mutation({
     return ids
   },
 })
+
+/** Clean up legacy password field after migration */
+export const cleanupLegacyPasswords = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // This would remove the old password field from all users
+    // Run after confirming all users have migrated
+    const users = await ctx.db.query('users').collect()
+    for (const user of users) {
+      await ctx.db.patch(user._id, { password: undefined as unknown as string })
+    }
+    return users.length
+  },
+})

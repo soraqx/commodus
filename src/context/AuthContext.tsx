@@ -39,6 +39,7 @@ function readStoredUserId(): Id<'users'> | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const convex = useConvex()
   const registerMutation = useMutation(api.auth.register)
+  const migrateMutation = useMutation(api.auth.migratePasswordIfNeeded)
 
   const [userId, setUserId] = useState<Id<'users'> | null>(() => readStoredUserId())
 
@@ -69,11 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!user) return null
 
+      // Handle legacy password migration
+      if (user.needsMigration) {
+        await migrateMutation({ email, password })
+      }
+
       localStorage.setItem(STORAGE_KEY, user._id)
       setUserId(user._id)
       return user
     },
-    [convex],
+    [convex, migrateMutation],
   )
 
   const register = useCallback(

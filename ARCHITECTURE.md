@@ -221,6 +221,15 @@ Passwords are hashed using PBKDF2-SHA256 with the Web Crypto API:
 
 The `hashPassword` and `verifyPassword` functions in `convex/auth.ts` use `crypto.subtle` APIs available in the Convex runtime, avoiding native module dependencies.
 
+### Legacy Password Migration
+
+For existing databases with plaintext passwords:
+
+1. `login` query detects missing `passwordHash` and sets `needsMigration: true` on successful plaintext match
+2. AuthContext calls `migratePasswordIfNeeded` mutation after successful login
+3. The mutation converts plaintext to hashed password in-place
+4. `cleanupLegacyPasswords` can be run later to remove the deprecated `password` field
+
 ---
 
 ## 5. Role-Based Access Control

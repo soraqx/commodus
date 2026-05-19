@@ -22,7 +22,9 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     email: v.string(),
-    passwordHash: v.string(),
+    passwordHash: v.optional(v.string()),
+    // Keep password field temporarily for migration backwards compatibility
+    password: v.optional(v.string()),
     role: userRole,
   })
     .index('by_email', ['email'])

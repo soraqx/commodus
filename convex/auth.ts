@@ -1,10 +1,19 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import { userRole } from './schema'
+import type { Id } from './_generated/dataModel'
 
 const SALT_LENGTH = 16
 const ITERATIONS = 100000
 const KEY_LENGTH = 32
+
+export type AuthUser = {
+  _id: Id<'users'>
+  name: string
+  email: string
+  role: 'superadmin' | 'admin' | 'student'
+  needsMigration?: boolean
+}
 
 async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH))
@@ -65,16 +74,18 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
 }
 
 function toPublicUser(user: {
-  _id: string
+  _id: Id<'users'>
   name: string
   email: string
   role: 'superadmin' | 'admin' | 'student'
-}) {
+  needsMigration?: boolean
+}): AuthUser {
   return {
     _id: user._id,
     name: user.name,
     email: user.email,
     role: user.role,
+    needsMigration: user.needsMigration,
   }
 }
 
@@ -90,6 +101,24 @@ export const login = query({
       .unique()
 
     if (!user) {
+      return null
+    }
+
+    // Check if passwordHash exists (new schema)
+    if (!user.passwordHash) {
+      // Legacy plaintext password fallback - cannot migrate in query
+      // Return null and let client handle re-authentication with migration
+      const legacyPassword = (user as { password?: string }).password
+      if (legacyPassword && legacyPassword === password) {
+        // Return user with flag indicating migration needed
+        return {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          needsMigration: true,
+        }
+      }
       return null
     }
 
@@ -169,12 +198,13 @@ export const migratePasswordIfNeeded = mutation({
     }
 
     // Check if already hashed (hash format: pbkdf2_sha256$iterations$salt$hash)
-    if (user.passwordHash.includes('$')) {
+    if (user.passwordHash && user.passwordHash.includes('$')) {
       return null // Already migrated
     }
 
-    // Plaintext password - verify and migrate
-    if (user.passwordHash === password) {
+    // Legacy plaintext password fallback
+    const legacyPassword = (user as { password?: string }).password
+    if (legacyPassword && legacyPassword === password) {
       const passwordHash = await hashPassword(password)
       await ctx.db.patch(user._id, { passwordHash })
       return toPublicUser(user)
