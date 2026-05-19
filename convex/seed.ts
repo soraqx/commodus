@@ -1,5 +1,35 @@
 import { mutation } from './_generated/server'
 
+const SALT_LENGTH = 16
+const ITERATIONS = 100000
+const KEY_LENGTH = 32
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH))
+  const encoder = new TextEncoder()
+  const passwordKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  )
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: ITERATIONS,
+      hash: 'SHA-256',
+    },
+    passwordKey,
+    KEY_LENGTH * 8
+  )
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('')
+  return `pbkdf2_sha256$${ITERATIONS}$${saltHex}$${hashHex}`
+}
+
 const demoUsers = [
   {
     name: 'Alex Student',
@@ -31,16 +61,26 @@ export const seedUsers = mutation({
         .query('users')
         .withIndex('by_email', (q) => q.eq('email', user.email))
         .unique()
+
+      const passwordHash = await hashPassword(user.password)
+
       if (existing) {
         await ctx.db.patch(existing._id, {
           name: user.name,
-          password: user.password,
+          passwordHash,
           role: user.role,
         })
         ids.push(existing._id)
         continue
       }
-      ids.push(await ctx.db.insert('users', user))
+      ids.push(
+        await ctx.db.insert('users', {
+          name: user.name,
+          email: user.email,
+          passwordHash,
+          role: user.role,
+        })
+      )
     }
     return ids
   },

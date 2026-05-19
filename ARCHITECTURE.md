@@ -210,9 +210,16 @@ type AuthContextValue = {
 2. `useQuery(api.auth.getUserById, 'skip')` stops resolving → `currentUser` becomes `null`
 3. `AuthLayout` renders `Login` instead of routes
 
-### Why Passwords Are Stored as Plaintext
+### Why Passwords Are Now Securely Hashed
 
-The `convex/auth.ts` login handler compares `user.password !== password`. There is **no hashing** in this codebase. This is a deliberate and self-documented limitation for a demo/seed environment. In production, `bcrypt` hashing is required.
+Passwords are hashed using PBKDF2-SHA256 with the Web Crypto API:
+
+- **Algorithm:** PBKDF2-SHA256 with 100,000 iterations
+- **Salt:** 16 random bytes per password (unique per user)
+- **Output:** 32-byte derived key (256 bits)
+- **Format:** `pbkdf2_sha256$iterations$salt$hash` (stored in `passwordHash` field)
+
+The `hashPassword` and `verifyPassword` functions in `convex/auth.ts` use `crypto.subtle` APIs available in the Convex runtime, avoiding native module dependencies.
 
 ---
 
@@ -316,11 +323,11 @@ export const userRole = v.union(
 )
 
 defineTable({
-  name:    v.string(),
-  email:   v.string(),
-  password: v.string(),   // stored as plaintext (demo only)
-  role:    userRole,
-})
+   name:    v.string(),
+   email:   v.string(),
+   passwordHash: v.string(),  // PBKDF2-SHA256 hash with salt
+   role:    userRole,
+  })
   .index('by_email', ['email'])   // ← lookup by email (login)
   .index('by_role',   ['role'])   // ← role-based scans (RBAC, admin views)
 
@@ -380,12 +387,12 @@ export type Doc<TableName extends TableNames> = DocumentByName<DataModel, TableN
 Each Convex document has at minimum `_id: Id<'tablename'>`, `_creationTime: number`, and the user-defined fields:
 
 ```
-Doc<'users'>          { _id, _creationTime, name, email, password, role }
+Doc<'users'>          { _id, _creationTime, name, email, passwordHash, role }
 Doc<'facilities'>     { _id, _creationTime, name, description, status }
 Doc<'reservations'>   { _id, _creationTime, facilityId, userId, date, startTime, endTime, status }
 ```
 
-`Doc` types are **internal** — they include `password`. The `toPublicUser()` helper in `auth.ts` strips the password field, so only the `AuthUser` type flows to the frontend.
+`Doc` types are **internal** — they include `passwordHash`. The `toPublicUser()` helper in `auth.ts` strips the `passwordHash` field, so only the `AuthUser` type flows to the frontend.
 
 ---
 
@@ -519,10 +526,10 @@ Used by `PageHeader`, `BrandMark`, and `Login` to keep brand text in one locatio
 ### 7.10 `Doc<'users'>` Exposed via Convex (pre-sanitisation)
 
 ```ts
-// Full raw doc (password included) — never sent to frontend
+// Full raw doc (passwordHash included) — never sent to frontend
 Doc<'users'> = { _id: Id<'users'>, _creationTime: number,
                  name: string, email: string,
-                 password: string,    ← stripped by toPublicUser()
+                 passwordHash: string,  ← hashed via PBKDF2-SHA256
                  role: UserRole }
 
 // Public / frontend-safe shape after toPublicUser()
@@ -531,7 +538,7 @@ AuthUser = { _id: Id<'users'>, _creationTime: number,
              role: UserRole }
 ```
 
-**Justification:** `Doc<'users'>` is never imported by page components. The `AuthUser` type is the only shape declared in `src/types/index.ts` and is what all UI consumers receive.
+**Justification:** `Doc<'users'>` is never imported by page components. The `AuthUser` type is the only shape declared in `src/types/index.ts` and is what all UI consumers receive. The `passwordHash` field is never exposed to the client.
 
 ---
 
